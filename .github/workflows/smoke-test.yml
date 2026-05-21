@@ -1,0 +1,109 @@
+name: Smoke test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  pass-path:
+    name: Passing run (bru ${{ matrix.bru-version }})
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        bru-version: ['3.0.0', 'latest']
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Stage fixtures for local HTTP server
+        run: |
+          mkdir -p public
+          printf '%s' '{"status":"ok"}'   > public/health.json
+          printf '%s' '{"method":"GET"}' > public/echo.json
+
+      - name: Start local HTTP server
+        run: |
+          nohup python3 -m http.server 8080 --directory public > server.log 2>&1 &
+          for i in {1..20}; do
+            if curl -sf http://127.0.0.1:8080/health.json > /dev/null; then
+              echo "server up"; exit 0
+            fi
+            sleep 0.5
+          done
+          echo "server never came up"; cat server.log; exit 1
+
+      - name: Run passing requests only
+        id: bru
+        uses: ./
+        with:
+          bru-version: ${{ matrix.bru-version }}
+          working-directory: tests/collection
+          command: 'run health.bru echo.bru --env ci --sandbox developer'
+
+      - name: Assert outputs (passing case)
+        run: |
+          set -euo pipefail
+          echo "exit-code=${{ steps.bru.outputs.exit-code }}"
+          echo "passed=${{ steps.bru.outputs.passed }}"
+          echo "failed=${{ steps.bru.outputs.failed }}"
+          echo "total=${{ steps.bru.outputs.total }}"
+          echo "duration-ms=${{ steps.bru.outputs.duration-ms }}"
+          echo "report-junit=${{ steps.bru.outputs.report-junit }}"
+          echo "report-json=${{ steps.bru.outputs.report-json }}"
+          echo "report-html=${{ steps.bru.outputs.report-html }}"
+          test "${{ steps.bru.outputs.exit-code }}" = "0"
+          test "${{ steps.bru.outputs.failed }}" = "0"
+          test "${{ steps.bru.outputs.passed }}" -ge 2
+          test -f "${{ steps.bru.outputs.report-junit }}"
+          test "${{ steps.bru.outputs.duration-ms }}" -ge 0
+          test -z "${{ steps.bru.outputs.report-json }}"
+          test -z "${{ steps.bru.outputs.report-html }}"
+
+  fail-path:
+    name: Failing run propagates exit code (bru ${{ matrix.bru-version }})
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        bru-version: ['3.0.0', 'latest']
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Stage fixtures + start server
+        run: |
+          mkdir -p public
+          printf '%s' '{"status":"ok"}'   > public/health.json
+          printf '%s' '{"method":"GET"}' > public/echo.json
+          nohup python3 -m http.server 8080 --directory public > server.log 2>&1 &
+          for i in {1..20}; do
+            curl -sf http://127.0.0.1:8080/health.json > /dev/null && exit 0
+            sleep 0.5
+          done
+          cat server.log; exit 1
+
+      - name: Run intentionally failing collection (continue-on-error)
+        id: bru
+        continue-on-error: true
+        uses: ./
+        with:
+          working-directory: tests/collection
+          command: 'run --env ci --sandbox developer'
+
+      - name: Assert failure was surfaced
+        run: |
+          set -euo pipefail
+          echo "exit-code=${{ steps.bru.outputs.exit-code }}"
+          echo "passed=${{ steps.bru.outputs.passed }}"
+          echo "failed=${{ steps.bru.outputs.failed }}"
+          test "${{ steps.bru.outputs.exit-code }}" != "0"
+          test "${{ steps.bru.outputs.failed }}" -gt 0
+          test -f "${{ steps.bru.outputs.report-junit }}"
+          test "${{ steps.bru.outputs.duration-ms }}" -ge 0
+          test "${{ steps.bru.outcome }}" = "failure"

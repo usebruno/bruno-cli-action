@@ -1,0 +1,43 @@
+name: Nightly CLI compatibility
+
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+jobs:
+  nightly:
+    name: Run smoke fixture against @usebruno/cli@latest
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Stage fixtures + start server
+        run: |
+          mkdir -p public
+          printf '%s' '{"status":"ok"}'   > public/health.json
+          printf '%s' '{"method":"GET"}' > public/echo.json
+          nohup python3 -m http.server 8080 --directory public > server.log 2>&1 &
+          for i in {1..20}; do
+            curl -sf http://127.0.0.1:8080/health.json > /dev/null && exit 0
+            sleep 0.5
+          done
+          cat server.log; exit 1
+
+      - name: Run action against @usebruno/cli@latest
+        id: bru
+        uses: ./
+        with:
+          bru-version: latest
+          working-directory: tests/collection
+          command: 'run health.bru echo.bru --env ci --sandbox developer'
+
+      - name: Assert passing fixture still passes
+        run: |
+          set -euo pipefail
+          test "${{ steps.bru.outputs.exit-code }}" = "0"
+          test "${{ steps.bru.outputs.failed }}" = "0"
+          test -f "${{ steps.bru.outputs.report-junit }}"
