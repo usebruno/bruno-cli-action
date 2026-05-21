@@ -2,9 +2,18 @@
 
 Official GitHub Action for running [Bruno](https://www.usebruno.com) CLI commands in CI.
 
-Installs `@usebruno/cli`, runs an arbitrary `bru` command, parses the JUnit XML it emits, writes a markdown summary to the run UI, and exposes machine-readable outputs for downstream steps.
+Installs `@usebruno/cli`, runs an arbitrary `bru` command, and exposes machine-readable outputs (`exit-code`, `passed`, `failed`, `total`, `duration-ms`) for downstream steps.
 
 Design pattern follows [`postmanlabs/postman-cli-action`](https://github.com/marketplace/actions/postman-cli-action) and [`kong/setup-inso`](https://github.com/marketplace/actions/setup-inso) — installer + CWD, no flag-mirroring. Every Bruno CLI flag works the day it ships in the CLI.
+
+## Requirements
+
+GitHub-hosted runners (`ubuntu-*`, `macos-*`, `windows-*` w/ bash) ship everything the action needs.
+
+| Tool | Why | GH-hosted | Self-hosted |
+|---|---|---|---|
+| `bash` | composite scripts | ✅ | install |
+| `node` | the action installs Node 20 via `actions/setup-node@v6` | ✅ (auto) | ✅ (auto) |
 
 ## Quickstart
 
@@ -26,7 +35,7 @@ Design pattern follows [`postmanlabs/postman-cli-action`](https://github.com/mar
 | `bru-version` | no | `latest` | Version of `@usebruno/cli` to install. |
 | `working-directory` | no | `.` | Shell working directory. Typically the Bruno collection root. |
 
-No typed inputs for `--env`, `--env-var`, `--tags`, `--bail`, `--sandbox`, etc. They all go in `command`. This is deliberate: zero coordination cost when the CLI adds a flag.
+No typed inputs for `--env`, `--env-var`, `--tags`, `--bail`, `--sandbox`, `--reporter-*`, etc. They all go in `command`. This is deliberate: zero coordination cost when the CLI adds a flag.
 
 ## Outputs
 
@@ -37,12 +46,8 @@ No typed inputs for `--env`, `--env-var`, `--tags`, `--bail`, `--sandbox`, etc. 
 | `total` | Total requests executed. |
 | `duration-ms` | Sum of testsuite durations in ms. |
 | `exit-code` | Raw exit code from `bru run`. |
-| `report-html`, `report-junit`, `report-json` | Paths to the generated reports. JUnit always populated (defaulted if `command` omits `--reporter-junit`); JSON / HTML populated only when their flag appears in `command`. |
 
-### How the reporter outputs are populated
-
-- **JUnit is always emitted.** If `command` contains `--reporter-junit X.xml`, that path is used. Otherwise the action appends `--reporter-junit bruno-junit.xml` because the parser needs it for `passed` / `failed` / `total`.
-- **JSON and HTML are opt-in.** Add `--reporter-json X.json` or `--reporter-html X.html` to `command` yourself. The action detects them and exposes the absolute path as `report-json` / `report-html`. Nothing is injected silently — this is a Bruno CLI concern, not a GitHub Action concern. See the [Bruno CLI command options](https://docs.usebruno.com/bru-cli/commandOptions).
+Counts come from the JUnit XML emitted by the CLI. If `command` omits `--reporter-junit`, the action injects `--reporter-junit bruno-junit.xml` internally so the parser has something to read. JSON and HTML reporters are pure CLI pass-through — add `--reporter-json X.json` or `--reporter-html X.html` to `command` yourself if you want those files; the action does not touch their paths.
 
 ## Examples
 
@@ -91,8 +96,6 @@ Each service owns its own collection. Point `working-directory` at the per-servi
     working-directory: services/payments/bruno
     command: 'run --env ci --reporter-junit results.xml'
 ```
-
-All `report-*` outputs resolve to absolute paths, so downstream steps work regardless of where the runner cwd ends up.
 
 ### 4a. Workspace + global environment
 
@@ -149,8 +152,7 @@ strategy:
     env: [staging, prod]
 steps:
   - uses: actions/checkout@v6
-  - id: bruno
-    uses: usebruno/bruno-run-action@v1
+  - uses: usebruno/bruno-run-action@v1
     with:
       working-directory: bruno
       command: >-
@@ -163,25 +165,24 @@ steps:
     with:
       name: bruno-report-${{ matrix.env }}
       path: |
-        ${{ steps.bruno.outputs.report-junit }}
-        ${{ steps.bruno.outputs.report-html }}
+        bruno/reports/${{ matrix.env }}.xml
+        bruno/reports/${{ matrix.env }}.html
 ```
 
 ### 5. PR comments via `EnricoMi/publish-unit-test-result-action`
 
-The always-on `report-junit` output plugs straight into the most-used test-result publisher:
+Add `--reporter-junit results.xml` to your `command`, then point the publisher at the same path. `${{ github.workspace }}` makes the path absolute regardless of `working-directory`.
 
 ```yaml
 - uses: usebruno/bruno-run-action@v1
-  id: bruno
   with:
     working-directory: tests/payments
-    command: 'run --env prod'
+    command: 'run --env prod --reporter-junit results.xml'
 
 - uses: EnricoMi/publish-unit-test-result-action@v2
   if: always()
   with:
-    files: ${{ steps.bruno.outputs.report-junit }}
+    files: ${{ github.workspace }}/tests/payments/results.xml
 ```
 
 ### 6. Conditional Slack on regression
@@ -196,35 +197,9 @@ The always-on `report-junit` output plugs straight into the most-used test-resul
 
 - if: steps.bruno.outputs.failed != '0'
   run: ./scripts/slack-notify.sh "${{ steps.bruno.outputs.failed }} failing"
-```
 
-## PR annotations
-
-Every failing request emits a GitHub `::error::` annotation. Failures show up in three places without expanding the run log:
-
-- **Files Changed tab** of the PR — a red ❌ marker on the `.bru` file with the assertion message inline.
-- **Workflow run page** — a banner at the top listing each failed request, its location, and the message.
-- **Checks tab** — `Bruno Run · N annotations · failed`.
-
-Format emitted to stdout (parsed by GitHub):
-```
-::error file=bruno/auth/login.bru,title=auth/login::Expected status 200 but got 401
-```
-
-Always on, no toggle. Matches the Newman ecosystem's default.
-
-## Step summary
-
-Every run writes a markdown table to `$GITHUB_STEP_SUMMARY`, parsed from the JUnit XML:
-
-```
-| Request               | Status | Duration |
-|-----------------------|--------|----------|
-| auth / login          | ✅     | 142 ms   |
-| users / list          | ✅     | 89 ms    |
-| users / create        | ❌     | 250 ms   |
-
-**Total: 2 passed, 1 failed, 0 skipped (of 3) — 481 ms**
+- if: steps.bruno.outputs.duration-ms > 30000
+  run: ./scripts/slack-notify.sh "Bruno took ${{ steps.bruno.outputs.duration-ms }} ms"
 ```
 
 ## Versioning
@@ -236,29 +211,15 @@ Every run writes a markdown table to `$GITHUB_STEP_SUMMARY`, parsed from the JUn
 
 The `v<major>` tag is retagged automatically on every published release.
 
-## Migrating from `matt-ball/newman-action` or `postmanlabs/postman-cli-action`
-
-| Postman input | Bruno equivalent |
-|---|---|
-| `command: 'collection run X.json'` | `command: 'run'` + `working-directory: X` |
-| `api-key` | not applicable (Bruno is local-only) |
-| `region` | not applicable |
-| `postman-cli-version` | `bru-version` |
-| `working-directory` | `working-directory` |
-
-CLI flag translation is out of scope for this README — see [Bruno CLI command options](https://docs.usebruno.com/bru-cli/commandOptions).
-
 ## Troubleshooting
 
-**Sandbox migration (Bruno CLI v3+).** v3 changed the default sandbox. If your tests relied on Node built-ins (`require`, `Buffer`, etc.), add `--sandbox developer` to `command`:
+**Sandbox migration (Bruno CLI v3+).** v3 changed the default sandbox. If your tests rely on Node built-ins (`require`, `Buffer`, etc.), add `--sandbox developer` to `command`:
 
 ```yaml
 command: 'run --env ci --sandbox developer'
 ```
 
-**`exit-code` is non-zero but `failed` is `0`.** The `bru` process crashed before writing JUnit, or wrote an empty report. Treat as a runtime error — check the step log for stderr. See the exit-code reference below for the specific code.
-
-**I only see `report-junit` set, not `report-json` or `report-html`.** That's expected. JUnit is the only reporter the action emits by default (the parser needs it). Add `--reporter-json X.json` and/or `--reporter-html X.html` to `command` yourself if you want those files. The action detects whatever flags you set and exposes the absolute paths.
+**`exit-code` is non-zero but `failed` is `0`.** The `bru` process crashed before writing JUnit, or wrote an empty report. Treat as a runtime error — check the step log for stderr. See the exit-code reference below.
 
 ### Exit-code reference
 
@@ -267,7 +228,7 @@ command: 'run --env ci --sandbox developer'
 | Code | Meaning | Common cause |
 |------|---------|--------------|
 | 0    | All requests, tests, and assertions passed | — |
-| 1    | One or more requests, tests, or assertions failed | inspect `report-junit`; fix the failing tests |
+| 1    | One or more requests, tests, or assertions failed | inspect the JUnit XML; fix the failing tests |
 | 2    | Reporter output directory does not exist | create the dir or change `--reporter-junit` path |
 | 3    | Request chain caused an infinite loop | break the loop in your collection |
 | 4    | `bru` was invoked outside a collection root | set `working-directory` to the collection dir |
@@ -286,7 +247,7 @@ command: 'run --env ci --sandbox developer'
 
 (Source: `packages/bruno-cli/src/constants.js` in the Bruno repo. Codes may shift across major CLI versions; the nightly smoke catches changes.)
 
-### My job failed before the summary appeared
+### My job failed before bru could run
 
 If the run log shows a red **Install Bruno CLI** step (not **Run bru**), the failure is in `npm install -g @usebruno/cli`, not in your collection. `outputs.exit-code` will be empty because `bru` never ran. Expand that step and look for one of:
 
@@ -300,15 +261,7 @@ If the run log shows a red **Install Bruno CLI** step (not **Run bru**), the fai
 
 All of these surface npm exit `1`. The useful signal is the stderr text, not the exit number.
 
-**JUnit XML not found.** Same as above. The step summary will say so explicitly.
-
-**Self-hosted runners.** The action installs Node 20 via `actions/setup-node@v6` — no additional install needed. `jq` is **not** required (parsing is pure Node).
-
 **Network timeouts.** Bruno honours `HTTP_PROXY` / `HTTPS_PROXY` / `NO_PROXY`. Set them via `env:` on the step.
-
-## Supported Bruno CLI versions
-
-Tested on every PR via matrix smoke (`3.0.0` floor and `latest`). Nightly run against `@usebruno/cli@latest` catches CLI regressions before users hit them.
 
 ## Other CI platforms
 

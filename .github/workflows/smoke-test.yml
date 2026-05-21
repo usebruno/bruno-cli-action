@@ -53,16 +53,11 @@ jobs:
           echo "failed=${{ steps.bru.outputs.failed }}"
           echo "total=${{ steps.bru.outputs.total }}"
           echo "duration-ms=${{ steps.bru.outputs.duration-ms }}"
-          echo "report-junit=${{ steps.bru.outputs.report-junit }}"
-          echo "report-json=${{ steps.bru.outputs.report-json }}"
-          echo "report-html=${{ steps.bru.outputs.report-html }}"
           test "${{ steps.bru.outputs.exit-code }}" = "0"
           test "${{ steps.bru.outputs.failed }}" = "0"
           test "${{ steps.bru.outputs.passed }}" -ge 2
-          test -f "${{ steps.bru.outputs.report-junit }}"
           test "${{ steps.bru.outputs.duration-ms }}" -ge 0
-          test -z "${{ steps.bru.outputs.report-json }}"
-          test -z "${{ steps.bru.outputs.report-html }}"
+          test -f tests/collection/bruno-junit.xml
 
   fail-path:
     name: Failing run propagates exit code (bru ${{ matrix.bru-version }})
@@ -104,6 +99,6 @@ jobs:
           echo "failed=${{ steps.bru.outputs.failed }}"
           test "${{ steps.bru.outputs.exit-code }}" != "0"
           test "${{ steps.bru.outputs.failed }}" -gt 0
-          test -f "${{ steps.bru.outputs.report-junit }}"
           test "${{ steps.bru.outputs.duration-ms }}" -ge 0
           test "${{ steps.bru.outcome }}" = "failure"
+          test -f tests/collection/bruno-junit.xml

@@ -17,13 +17,11 @@ SANITIZED_COMMAND="${SANITIZED_COMMAND#bru}"
 eval "set -- ${SANITIZED_COMMAND}"
 USER_ARGS=( "$@" )
 
-# Detect any --reporter-{junit,json,html} <path> or --reporter-{junit,json,html}=<path>
-# in user args. We only inject a default for junit (parser requires it); json
-# and html stay opt-in per the pass-through design.
+# Detect --reporter-junit <path> or --reporter-junit=<path>. We only care
+# about JUnit because that's what the parser reads to compute passed/failed/
+# total/duration-ms. JSON and HTML reporters are pure CLI pass-through —
+# users add those flags themselves if they want those files.
 JUNIT_PATH=""
-JSON_PATH=""
-HTML_PATH=""
-
 i=0
 while [ "${i}" -lt "${#USER_ARGS[@]}" ]; do
   arg="${USER_ARGS[${i}]}"
@@ -34,18 +32,6 @@ while [ "${i}" -lt "${#USER_ARGS[@]}" ]; do
       ;;
     --reporter-junit=*)
       JUNIT_PATH="${arg#--reporter-junit=}"
-      ;;
-    --reporter-json)
-      [ "${next_i}" -lt "${#USER_ARGS[@]}" ] && JSON_PATH="${USER_ARGS[${next_i}]}"
-      ;;
-    --reporter-json=*)
-      JSON_PATH="${arg#--reporter-json=}"
-      ;;
-    --reporter-html)
-      [ "${next_i}" -lt "${#USER_ARGS[@]}" ] && HTML_PATH="${USER_ARGS[${next_i}]}"
-      ;;
-    --reporter-html=*)
-      HTML_PATH="${arg#--reporter-html=}"
       ;;
   esac
   i=$((i + 1))
@@ -59,20 +45,8 @@ fi
 
 mkdir -p "$(dirname "${JUNIT_PATH}")"
 
-# Resolve absolute paths for any reporter that was set, so downstream steps
-# (running from a different cwd) can consume them.
-abs_path() {
-  local p="$1"
-  [ -z "${p}" ] && { echo ""; return; }
-  local dir
-  dir="$(dirname "${p}")"
-  mkdir -p "${dir}" 2>/dev/null || true
-  echo "$(cd "${dir}" && pwd)/$(basename "${p}")"
-}
-
-ABS_JUNIT_PATH="$(abs_path "${JUNIT_PATH}")"
-ABS_JSON_PATH="$(abs_path "${JSON_PATH}")"
-ABS_HTML_PATH="$(abs_path "${HTML_PATH}")"
+# Absolute path so the next step (which may run in a different cwd) can find it.
+ABS_JUNIT_PATH="$(cd "$(dirname "${JUNIT_PATH}")" && pwd)/$(basename "${JUNIT_PATH}")"
 
 echo "::group::bru ${USER_ARGS[*]}"
 set +e
@@ -82,9 +56,7 @@ set -e
 echo "::endgroup::"
 
 {
-  echo "report-junit=${ABS_JUNIT_PATH}"
-  echo "report-json=${ABS_JSON_PATH}"
-  echo "report-html=${ABS_HTML_PATH}"
+  echo "junit-path=${ABS_JUNIT_PATH}"
   echo "exit-code=${EXIT_CODE}"
 } >> "${GITHUB_OUTPUT}"
 

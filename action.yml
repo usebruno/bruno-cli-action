@@ -34,15 +34,6 @@ outputs:
   duration-ms:
     description: 'Sum of testsuite durations in milliseconds.'
     value: ${{ steps.report.outputs.duration-ms }}
-  report-junit:
-    description: 'Absolute path to the JUnit XML. Defaulted if --reporter-junit is not in command.'
-    value: ${{ steps.run.outputs.report-junit }}
-  report-json:
-    description: 'Absolute path to the JSON report. Empty unless --reporter-json was set in command.'
-    value: ${{ steps.run.outputs.report-json }}
-  report-html:
-    description: 'Absolute path to the HTML report. Empty unless --reporter-html was set in command.'
-    value: ${{ steps.run.outputs.report-html }}
 
 runs:
   using: 'composite'
@@ -66,12 +57,12 @@ runs:
         USER_COMMAND: ${{ inputs.command }}
       run: ${{ github.action_path }}/lib/run-bru.sh
 
-    - name: Parse JUnit + write summary
+    - name: Parse JUnit results
       id: report
       shell: bash
       working-directory: ${{ inputs.working-directory }}
       env:
-        JUNIT_PATH: ${{ steps.run.outputs.report-junit }}
+        JUNIT_PATH: ${{ steps.run.outputs.junit-path }}
       run: node ${{ github.action_path }}/lib/report.js
 
     - name: Propagate exit code
