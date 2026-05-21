@@ -1,5 +1,5 @@
-name: 'Bruno Run'
-description: 'Run a Bruno CLI command in GitHub Actions. Installs @usebruno/cli, runs your bru command, surfaces JUnit results.'
+name: 'Bruno CLI'
+description: 'Run Bruno CLI commands in GitHub Actions — collection runs, environment-based testing, and any bru subcommand.'
 author: 'Bruno'
 branding:
   icon: 'send'
