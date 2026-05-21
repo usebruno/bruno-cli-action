@@ -18,7 +18,7 @@ jobs:
       matrix:
         bru-version: ['3.0.0', 'latest']
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Stage fixtures for local HTTP server
         run: |
@@ -74,7 +74,7 @@ jobs:
       matrix:
         bru-version: ['3.0.0', 'latest']
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Stage fixtures + start server
         run: |

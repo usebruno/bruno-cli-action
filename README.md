@@ -9,7 +9,7 @@ Design pattern follows [`postmanlabs/postman-cli-action`](https://github.com/mar
 ## Quickstart
 
 ```yaml
-- uses: actions/checkout@v4
+- uses: actions/checkout@v6
 - uses: usebruno/bruno-run-action@v1
   with:
     working-directory: tests/payments
@@ -49,7 +49,7 @@ No typed inputs for `--env`, `--env-var`, `--tags`, `--bail`, `--sandbox`, etc. 
 ### 1. Canonical pattern
 
 ```yaml
-- uses: actions/checkout@v4
+- uses: actions/checkout@v6
 - uses: usebruno/bruno-run-action@v1
   with:
     working-directory: tests/payments
@@ -73,7 +73,7 @@ strategy:
   matrix:
     env: [staging, prod]
 steps:
-  - uses: actions/checkout@v4
+  - uses: actions/checkout@v6
   - uses: usebruno/bruno-run-action@v1
     with:
       working-directory: tests/payments
@@ -85,7 +85,7 @@ steps:
 Each service owns its own collection. Point `working-directory` at the per-service collection root:
 
 ```yaml
-- uses: actions/checkout@v4
+- uses: actions/checkout@v6
 - uses: usebruno/bruno-run-action@v1
   with:
     working-directory: services/payments/bruno
@@ -99,7 +99,7 @@ All `report-*` outputs resolve to absolute paths, so downstream steps work regar
 For collections that live inside a workspace (`workspace.yml` at the root and the collection in a subfolder):
 
 ```yaml
-- uses: actions/checkout@v4
+- uses: actions/checkout@v6
 - uses: usebruno/bruno-run-action@v1
   with:
     working-directory: .
@@ -120,7 +120,7 @@ The YAML `>-` folded scalar keeps the command readable across lines while stayin
 Run the smoke tags on every PR; run everything on `main`:
 
 ```yaml
-- uses: actions/checkout@v4
+- uses: actions/checkout@v6
 - uses: usebruno/bruno-run-action@v1
   with:
     working-directory: bruno
@@ -133,7 +133,7 @@ Run the smoke tags on every PR; run everything on `main`:
 ### 4c. Data-driven run via CSV
 
 ```yaml
-- uses: actions/checkout@v4
+- uses: actions/checkout@v6
 - uses: usebruno/bruno-run-action@v1
   with:
     working-directory: bruno
@@ -148,7 +148,7 @@ strategy:
   matrix:
     env: [staging, prod]
 steps:
-  - uses: actions/checkout@v4
+  - uses: actions/checkout@v6
   - id: bruno
     uses: usebruno/bruno-run-action@v1
     with:
@@ -159,7 +159,7 @@ steps:
         --reporter-html  reports/${{ matrix.env }}.html
 
   - if: always()
-    uses: actions/upload-artifact@v4
+    uses: actions/upload-artifact@v7
     with:
       name: bruno-report-${{ matrix.env }}
       path: |
@@ -302,7 +302,7 @@ All of these surface npm exit `1`. The useful signal is the stderr text, not the
 
 **JUnit XML not found.** Same as above. The step summary will say so explicitly.
 
-**Self-hosted runners.** The action installs Node 20 via `actions/setup-node@v4` — no additional install needed. `jq` is **not** required (parsing is pure Node).
+**Self-hosted runners.** The action installs Node 20 via `actions/setup-node@v6` — no additional install needed. `jq` is **not** required (parsing is pure Node).
 
 **Network timeouts.** Bruno honours `HTTP_PROXY` / `HTTPS_PROXY` / `NO_PROXY`. Set them via `env:` on the step.
 

@@ -11,7 +11,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Publish action and auto-retag floating major (v1, v2, ...)
         uses: actions/publish-action@v0.4.0
