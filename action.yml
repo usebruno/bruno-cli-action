@@ -2,8 +2,8 @@ name: 'Bruno CLI'
 description: 'Run Bruno CLI commands in GitHub Actions — collection runs, environment-based testing, and any bru subcommand.'
 author: 'Bruno'
 branding:
-  icon: 'send'
-  color: 'orange'
+  icon: 'terminal'
+  color: 'yellow'
 
 inputs:
   command:
