@@ -1,0 +1,19 @@
+meta {
+  name: network-error
+  type: http
+  seq: 4
+}
+
+get {
+  url: http://127.0.0.1:1/
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("never reached — request errors out before assertions run", function() {
+    expect(true).to.equal(true);
+  });
+}

@@ -3,7 +3,10 @@ set -uo pipefail
 
 : "${USER_COMMAND:?command is required}"
 
-DEFAULT_JUNIT="bruno-junit.xml"
+# Default JUnit path lives in the runner's temp dir so we don't litter the
+# user's working-directory with a stray file. Used only when `command` lacks
+# its own --reporter-junit flag.
+DEFAULT_JUNIT="${RUNNER_TEMP:-/tmp}/bruno-junit.xml"
 
 # Strip a leading `bru ` (or just `bru`) so users who paste their full local
 # command don't end up running `bru bru run ...`.

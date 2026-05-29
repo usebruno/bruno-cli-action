@@ -9,7 +9,7 @@ on:
 
 jobs:
   pass-path:
-    name: Passing run (bru ${{ matrix.bru-version }})
+    name: Passing run + JUnit auto-inject (bru ${{ matrix.bru-version }})
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -37,7 +37,7 @@ jobs:
           done
           echo "server never came up"; cat server.log; exit 1
 
-      - name: Run passing requests only
+      - name: Run passing requests only (command lacks --reporter-junit; expect auto-inject)
         id: bru
         uses: ./
         with:
@@ -45,7 +45,7 @@ jobs:
           working-directory: tests/collection
           command: 'run health.bru echo.bru --env ci --sandbox developer'
 
-      - name: Assert outputs (passing case)
+      - name: Assert outputs + auto-injected JUnit landed in $RUNNER_TEMP
         run: |
           set -euo pipefail
           echo "exit-code=${{ steps.bru.outputs.exit-code }}"
@@ -57,10 +57,12 @@ jobs:
           test "${{ steps.bru.outputs.failed }}" = "0"
           test "${{ steps.bru.outputs.passed }}" -ge 2
           test "${{ steps.bru.outputs.duration-ms }}" -ge 0
-          test -f tests/collection/bruno-junit.xml
+          test -n "${RUNNER_TEMP:-}"
+          test -f "${RUNNER_TEMP}/bruno-junit.xml"
+          test ! -e tests/collection/bruno-junit.xml
 
   fail-path:
-    name: Failing run propagates exit code (bru ${{ matrix.bru-version }})
+    name: Failing run + JUnit <error> counts as failed (bru ${{ matrix.bru-version }})
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -83,7 +85,7 @@ jobs:
           done
           cat server.log; exit 1
 
-      - name: Run intentionally failing collection (continue-on-error)
+      - name: Run full collection (includes intentional-fail.bru + network-error.bru)
         id: bru
         continue-on-error: true
         uses: ./
@@ -91,14 +93,53 @@ jobs:
           working-directory: tests/collection
           command: 'run --env ci --sandbox developer'
 
-      - name: Assert failure was surfaced
+      - name: Assert exit propagation, fail counts, and <error> handling
         run: |
           set -euo pipefail
           echo "exit-code=${{ steps.bru.outputs.exit-code }}"
           echo "passed=${{ steps.bru.outputs.passed }}"
           echo "failed=${{ steps.bru.outputs.failed }}"
+          echo "total=${{ steps.bru.outputs.total }}"
+          echo "duration-ms=${{ steps.bru.outputs.duration-ms }}"
           test "${{ steps.bru.outputs.exit-code }}" != "0"
-          test "${{ steps.bru.outputs.failed }}" -gt 0
+          test "${{ steps.bru.outputs.failed }}" -ge 2
+          test "${{ steps.bru.outputs.passed }}" -ge 2
+          test "${{ steps.bru.outputs.total }}" -ge 4
           test "${{ steps.bru.outputs.duration-ms }}" -ge 0
           test "${{ steps.bru.outcome }}" = "failure"
-          test -f tests/collection/bruno-junit.xml
+          test -f "${RUNNER_TEMP}/bruno-junit.xml"
+          grep -q '<error\b' "${RUNNER_TEMP}/bruno-junit.xml"
+
+  explicit-reporter:
+    name: Explicit --reporter-junit honored, no auto-inject
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Stage fixtures + start server
+        run: |
+          mkdir -p public
+          printf '%s' '{"status":"ok"}'   > public/health.json
+          printf '%s' '{"method":"GET"}' > public/echo.json
+          nohup python3 -m http.server 8080 --directory public > server.log 2>&1 &
+          for i in {1..20}; do
+            curl -sf http://127.0.0.1:8080/health.json > /dev/null && exit 0
+            sleep 0.5
+          done
+          cat server.log; exit 1
+
+      - name: Run with explicit --reporter-junit at a known path
+        id: bru
+        uses: ./
+        with:
+          working-directory: tests/collection
+          command: 'run health.bru echo.bru --env ci --sandbox developer --reporter-junit results.xml'
+
+      - name: Assert user's path was honored and default was not created
+        run: |
+          set -euo pipefail
+          test "${{ steps.bru.outputs.exit-code }}" = "0"
+          test -f tests/collection/results.xml
+          test ! -e "${RUNNER_TEMP}/bruno-junit.xml"
