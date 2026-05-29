@@ -64,11 +64,4 @@ echo "::endgroup::"
   echo "exit-code=${EXIT_CODE}"
 } >> "${GITHUB_OUTPUT}"
 
-# Surface the JUnit path as a workflow notice so it's visible on the run page
-# without having to scroll the step log. Only emit when the file actually
-# landed on disk — if bru crashed before writing, the notice would be misleading.
-if [ -f "${ABS_JUNIT_PATH}" ]; then
-  echo "::notice title=Bruno JUnit report::Written to ${ABS_JUNIT_PATH}. Chain actions/upload-artifact to persist it as a downloadable workflow artifact."
-fi
-
 exit 0
