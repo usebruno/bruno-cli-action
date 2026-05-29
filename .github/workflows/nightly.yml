@@ -40,4 +40,4 @@ jobs:
           set -euo pipefail
           test "${{ steps.bru.outputs.exit-code }}" = "0"
           test "${{ steps.bru.outputs.failed }}" = "0"
-          test -f tests/collection/bruno-junit.xml
+          test -f "${RUNNER_TEMP}/bruno-junit.xml"

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -uo pipefail
+set -euo pipefail
 
 : "${USER_COMMAND:?command is required}"
 
@@ -8,10 +8,11 @@ set -uo pipefail
 # its own --reporter-junit flag.
 DEFAULT_JUNIT="${RUNNER_TEMP:-/tmp}/bruno-junit.xml"
 
-# Strip a leading `bru ` (or just `bru`) so users who paste their full local
-# command don't end up running `bru bru run ...`.
+# Strip a leading `bru ` so users who paste their full local command don't
+# end up running `bru bru run ...`. Only strips when followed by a space —
+# avoids mangling subcommands that happen to start with "bru" (e.g. "brunch"
+# if such a thing ever existed).
 SANITIZED_COMMAND="${USER_COMMAND#bru }"
-SANITIZED_COMMAND="${SANITIZED_COMMAND#bru}"
 
 # Tokenize `command` through the shell so quoted arguments survive
 # (e.g. `--env-var "API_TOKEN=hello world"`). Same pattern as
