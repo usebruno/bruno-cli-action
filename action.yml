@@ -41,7 +41,13 @@ runs:
     - name: Set up Node.js
       uses: actions/setup-node@v6
       with:
-        node-version: '20'
+        node-version: '22'
+
+    - name: Install action dependencies (fast-xml-parser)
+      shell: bash
+      run: |
+        cd "${{ github.action_path }}"
+        npm ci --omit=dev --no-audit --no-fund --prefer-offline
 
     - name: Install Bruno CLI
       shell: bash

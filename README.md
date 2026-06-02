@@ -426,7 +426,7 @@ command: 'run --env ci --sandbox developer'
 | 130  | Job was cancelled (`SIGINT`) | check `timeout-minutes`; nothing to fix in `command` |
 | 255  | Unhandled CLI crash (`ERROR_GENERIC`) | open an issue in `usebruno/bruno` with the stderr |
 
-(Source: `packages/bruno-cli/src/constants.js` in the Bruno repo. Codes may shift across major CLI versions; the nightly smoke catches changes.)
+(Source: `packages/bruno-cli/src/constants.js` in the Bruno repo. Codes may shift across major CLI versions; the nightly workflow catches changes.)
 
 ### Job failed before bru could run
 

@@ -90,6 +90,7 @@ jobs:
         continue-on-error: true
         uses: ./
         with:
+          bru-version: ${{ matrix.bru-version }}
           working-directory: tests/collection
           command: 'run --env ci --sandbox developer'
 
