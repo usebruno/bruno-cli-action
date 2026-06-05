@@ -1,0 +1,19 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  publish:
+    name: Publish to Marketplace and retag major
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Publish action and auto-retag floating major (v1, v2, ...)
+        uses: actions/publish-action@v0.4.0
+        with:
+          source-tag: ${{ github.event.release.tag_name }}

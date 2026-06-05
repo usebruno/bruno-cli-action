@@ -1,0 +1,83 @@
+name: 'Bruno CLI'
+description: 'Run Bruno CLI commands in GitHub Actions — collection runs, environment-based testing, and any bru subcommand.'
+author: 'Bruno'
+branding:
+  icon: 'terminal'
+  color: 'yellow'
+
+inputs:
+  command:
+    description: 'The bru subcommand and flags (e.g. "run --env prod --reporter-junit results.xml"). The action prepends "bru".'
+    required: true
+  bru-version:
+    description: 'Version of @usebruno/cli to install.'
+    required: false
+    default: 'latest'
+  working-directory:
+    description: 'Shell working directory. Typically the Bruno collection root.'
+    required: false
+    default: '.'
+
+outputs:
+  exit-code:
+    description: 'Exit code from the bru process.'
+    value: ${{ steps.run.outputs.exit-code }}
+  passed:
+    description: 'Number of passed requests.'
+    value: ${{ steps.report.outputs.passed }}
+  failed:
+    description: 'Number of failed requests.'
+    value: ${{ steps.report.outputs.failed }}
+  total:
+    description: 'Total requests run.'
+    value: ${{ steps.report.outputs.total }}
+  duration-ms:
+    description: 'Sum of testsuite durations in milliseconds.'
+    value: ${{ steps.report.outputs.duration-ms }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Node.js
+      uses: actions/setup-node@v6
+      with:
+        node-version: '22'
+
+    - name: Install action dependencies (fast-xml-parser)
+      shell: bash
+      run: |
+        cd "${{ github.action_path }}"
+        npm ci --omit=dev --no-audit --no-fund --prefer-offline
+
+    - name: Install Bruno CLI
+      shell: bash
+      env:
+        BRU_VERSION: ${{ inputs.bru-version }}
+      run: ${{ github.action_path }}/lib/install-cli.sh
+
+    - name: Run bru
+      id: run
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        USER_COMMAND: ${{ inputs.command }}
+      run: ${{ github.action_path }}/lib/run-bru.sh
+
+    - name: Parse JUnit results
+      id: report
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        JUNIT_PATH: ${{ steps.run.outputs.junit-path }}
+      run: node ${{ github.action_path }}/lib/report.js
+
+    - name: Propagate exit code
+      shell: bash
+      env:
+        RUN_EXIT: ${{ steps.run.outputs.exit-code }}
+      run: |
+        set -euo pipefail
+        if [ "${RUN_EXIT:-0}" -ne 0 ]; then
+          echo "::error::bru exited with ${RUN_EXIT}."
+          exit "${RUN_EXIT}"
+        fi

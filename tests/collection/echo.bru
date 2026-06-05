@@ -1,0 +1,19 @@
+meta {
+  name: echo
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/echo.json
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("echo returns expected method", function() {
+    expect(res.getBody().method).to.equal("GET");
+  });
+}

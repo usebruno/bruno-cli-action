@@ -1,0 +1,11 @@
+# Bruno run outputs (defaulted when --reporter-junit is omitted)
+bruno-junit.xml
+bruno-results.*
+bruno-reports/
+
+# Node
+node_modules/
+
+# Logs and temp
+*.log
+.DS_Store

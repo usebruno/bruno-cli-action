@@ -1,0 +1,19 @@
+meta {
+  name: intentional-fail
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/health.json
+}
+
+assert {
+  res.body.status: eq this-will-never-match
+}
+
+tests {
+  test("this test is intentionally broken", function() {
+    expect(res.getBody().status).to.equal("definitely-not-ok");
+  });
+}

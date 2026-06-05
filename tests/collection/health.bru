@@ -1,0 +1,20 @@
+meta {
+  name: health
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/health.json
+}
+
+assert {
+  res.status: eq 200
+  res.body.status: eq {{expectedStatus}}
+}
+
+tests {
+  test("status is ok", function() {
+    expect(res.getBody().status).to.equal("ok");
+  });
+}
