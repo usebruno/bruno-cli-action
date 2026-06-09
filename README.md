@@ -14,7 +14,7 @@ Design pattern follows [`postmanlabs/postman-cli-action`](https://github.com/pos
 # No UI surfaces, no artifact upload by default.
 # See "Pairing with downstream actions" for PR comments, annotations,
 # Step Summary, artifact upload, soft-fail, and more.
-- uses: usebruno/bruno-run-action@v1
+- uses: usebruno/bruno-cli-action@v1
   with:
     working-directory: tests/payments
     command: 'run --env prod'
@@ -80,7 +80,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - uses: usebruno/bruno-run-action@v1
+      - uses: usebruno/bruno-cli-action@v1
         with:
           working-directory: tests/payments
           command: 'run --env prod --reporter-junit results.xml'
@@ -145,7 +145,7 @@ EnricoMi posts annotations via the Check Runs API. These appear in the PR Checks
 If you have a polyglot test stack (Jest, Pytest, Bruno) and want all results in the same Checks tab UI, dorny is the better tool than EnricoMi:
 
 ```yaml
-- uses: usebruno/bruno-run-action@v1
+- uses: usebruno/bruno-cli-action@v1
   with:
     working-directory: tests/payments
     command: 'run --env prod --reporter-junit results.xml'
@@ -165,7 +165,7 @@ If you have a polyglot test stack (Jest, Pytest, Bruno) and want all results in 
 When you want both: a PR Conversation comment from EnricoMi and a polished Checks tab UI from dorny:
 
 ```yaml
-- uses: usebruno/bruno-run-action@v1
+- uses: usebruno/bruno-cli-action@v1
   with:
     working-directory: tests/payments
     command: 'run --env prod --reporter-junit results.xml'
@@ -191,7 +191,7 @@ When you want both: a PR Conversation comment from EnricoMi and a polished Check
 Bruno's CLI handles sensitive-header redaction; pass the flag in `command`. Chain `actions/upload-artifact@v7` to persist the report:
 
 ```yaml
-- uses: usebruno/bruno-run-action@v1
+- uses: usebruno/bruno-cli-action@v1
   with:
     working-directory: tests/payments
     command: 'run --env prod --reporter-junit results.xml --reporter-skip-headers "Authorization Cookie X-Tenant-Token"'
@@ -212,7 +212,7 @@ To customize retention or use compression options, see `actions/upload-artifact@
 Pass multiple reporter flags in `command`. Chain `actions/upload-artifact@v7` with a path list:
 
 ```yaml
-- uses: usebruno/bruno-run-action@v1
+- uses: usebruno/bruno-cli-action@v1
   with:
     working-directory: tests/payments
     command: 'run --env prod --reporter-junit results.xml --reporter-html report.html --reporter-json report.json'
@@ -235,7 +235,7 @@ Use the JUnit-derived `failed` output as a conditional. Use `continue-on-error: 
 
 ```yaml
 - id: bruno
-  uses: usebruno/bruno-run-action@v1
+  uses: usebruno/bruno-cli-action@v1
   continue-on-error: true
   with:
     working-directory: tests/payments
@@ -268,7 +268,7 @@ For users who do not want EnricoMi's full setup and only need a quick "post a co
 
 ```yaml
 - id: bruno
-  uses: usebruno/bruno-run-action@v1
+  uses: usebruno/bruno-cli-action@v1
   with:
     working-directory: tests/payments
     command: 'run --env prod'
@@ -311,7 +311,7 @@ jobs:
         env: [staging, prod]
     steps:
       - uses: actions/checkout@v6
-      - uses: usebruno/bruno-run-action@v1
+      - uses: usebruno/bruno-cli-action@v1
         with:
           working-directory: tests/payments
           command: 'run --env ${{ matrix.env }} --reporter-junit results-${{ matrix.env }}.xml'
@@ -339,7 +339,7 @@ Record results without failing the build, then notify selectively. Use GitHub Ac
 
 ```yaml
 - id: bruno
-  uses: usebruno/bruno-run-action@v1
+  uses: usebruno/bruno-cli-action@v1
   continue-on-error: true
   with:
     working-directory: tests/payments
@@ -368,7 +368,7 @@ Marshall secrets via shell, pass paths to bru:
     CA_CERT: ${{ secrets.API_CA_CERT }}
     CLIENT_CERT_CONFIG: ${{ secrets.API_CLIENT_CERT_CONFIG }}
 
-- uses: usebruno/bruno-run-action@v1
+- uses: usebruno/bruno-cli-action@v1
   with:
     working-directory: tests/payments
     command: 'run --env prod --cacert /tmp/certs/ca.pem --client-cert-config /tmp/certs/client.json'

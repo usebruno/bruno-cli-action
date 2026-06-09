@@ -1,6 +1,6 @@
 {
   "version": "1",
-  "name": "bruno-run-action smoke",
+  "name": "bruno-cli-action smoke",
   "type": "collection",
   "ignore": ["node_modules", ".git"]
 }
