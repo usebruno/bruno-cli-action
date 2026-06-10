@@ -4,8 +4,6 @@ Official GitHub Action for running [Bruno](https://www.usebruno.com) CLI command
 
 Installs `@usebruno/cli`, runs an arbitrary `bru` command, parses the emitted JUnit XML, and exposes machine-readable counts (`exit-code`, `passed`, `failed`, `total`, `duration-ms`) for downstream steps. UI rendering, artifact upload, PR comments, and soft-fail semantics are delegated to the GitHub Actions ecosystem (`EnricoMi/publish-unit-test-result-action`, `dorny/test-reporter`, `actions/upload-artifact`, `continue-on-error`). See [Pairing with downstream actions](#pairing-with-downstream-actions) for canonical recipes.
 
-Design pattern follows [`postmanlabs/postman-cli-action`](https://github.com/postmanlabs/postman-cli-action) and [`kong/setup-inso`](https://github.com/kong/setup-inso): minimal-input pass-through, no flag mirroring.
-
 ## Quickstart
 
 ```yaml
