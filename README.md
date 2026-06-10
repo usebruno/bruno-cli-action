@@ -1,28 +1,46 @@
 # Bruno CLI GitHub Action
 
-Official GitHub Action for running [Bruno](https://www.usebruno.com) CLI commands in CI.
+Official GitHub Action for running [Bruno](https://www.usebruno.com) CLI commands in CI/CD workflows.
 
-Installs `@usebruno/cli`, runs an arbitrary `bru` command, parses the emitted JUnit XML, and exposes machine-readable counts (`exit-code`, `passed`, `failed`, `total`, `duration-ms`) for downstream steps. UI rendering, artifact upload, PR comments, and soft-fail semantics are delegated to the GitHub Actions ecosystem (`EnricoMi/publish-unit-test-result-action`, `dorny/test-reporter`, `actions/upload-artifact`, `continue-on-error`). See [Pairing with downstream actions](#pairing-with-downstream-actions) for canonical recipes.
+Installs `@usebruno/cli`, runs an arbitrary `bru` command, parses the emitted JUnit XML, and exposes machine-readable counts (`exit-code`, `passed`, `failed`, `total`, `duration-ms`) for downstream steps. 
 
-Design pattern follows [`postmanlabs/postman-cli-action`](https://github.com/postmanlabs/postman-cli-action) and [`kong/setup-inso`](https://github.com/kong/setup-inso): minimal-input pass-through, no flag mirroring.
+- [Usage](#usage)
+- [Customize](#customize)
+  - [Inputs](#inputs)
+  - [Outputs](#outputs)
+  - [Behavior](#behavior)
+- [Versioning](#versioning)
+- [Examples](#examples)
+- [Troubleshooting](#troubleshooting)
+- [Resources](#resources)
 
-## Quickstart
+## Usage
+
+The following shows the minimum setup to configure the GitHub Action with a command and return counts as outputs. Learn about the [supported inputs](#inputs) you can use to customize the GitHub Action.
 
 ```yaml
-# Minimal — installs the CLI, runs the collection, returns counts as outputs.
-# Step fails (red) on assertion failure, succeeds (green) on success.
-# No UI surfaces, no artifact upload by default.
-# See "Pairing with downstream actions" for PR comments, annotations,
-# Step Summary, artifact upload, soft-fail, and more.
-- uses: usebruno/bruno-cli-action@v1
-  with:
-    working-directory: tests/payments
-    command: 'run --env prod'
+name: API Tests
+
+on: [push]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run Bruno Collection
+        uses: usebruno/bruno-cli-action@v0
+        with:
+          working-directory: tests/payments
+          command: 'run --env prod'
 ```
 
-**What you'll see:** the workflow step turns red on assertion failure (green on success). No PR comments, no annotations, no Step Summary, no uploaded artifact. Outputs are populated for downstream conditional steps.
+**What you'll see:** the workflow step turns red on assertion failure (green on success). Outputs are populated for downstream conditional steps.
 
-## Inputs
+UI rendering, artifact upload, PR comments, and soft-fail semantics are delegated to the GitHub Actions ecosystem (`EnricoMi/publish-unit-test-result-action`, `dorny/test-reporter`, `actions/upload-artifact`, `continue-on-error`). See [Examples](#examples) for canonical recipes.
+
+## Customize
+
+### Inputs
 
 | Input | Required | Default | Description |
 |---|---|---|---|
@@ -32,7 +50,18 @@ Design pattern follows [`postmanlabs/postman-cli-action`](https://github.com/pos
 
 No typed inputs for `--env`, `--env-var`, `--tags`, `--bail`, `--sandbox`, `--reporter-*`, etc. They all go in `command`. Every CLI flag works the day it ships in the CLI, with zero coordination cost.
 
-## Outputs
+**Example using all inputs:**
+
+```yaml
+- name: Run Bruno collection
+  uses: usebruno/bruno-cli-action@v0
+  with:
+    command: 'run --env prod --reporter-junit results.xml'
+    bru-version: '3.4.2'
+    working-directory: tests/payments
+```
+
+### Outputs
 
 Available as `${{ steps.<id>.outputs.<name> }}` in subsequent steps:
 
@@ -46,23 +75,44 @@ Available as `${{ steps.<id>.outputs.<name> }}` in subsequent steps:
 
 Report file paths are intentionally **not** outputs. Users who chain to downstream actions pass an explicit `--reporter-junit <path>` in `command` and reference that path directly in the next step.
 
-## Behavior
+### Behavior
 
-### JUnit auto-injection (always-on)
-
-If the user's `command` does not contain `--reporter-junit`, the action appends `--reporter-junit "$RUNNER_TEMP/bruno-junit.xml"` before invoking `bru`. JUnit is required for output extraction; auto-injection means a minimal `command: 'run'` produces count outputs without the user having to remember reporter flags. The file lives in the runner's temp dir and is auto-cleaned post-job.
+**JUnit auto-injection (always-on).** If the user's `command` does not contain `--reporter-junit`, the action appends `--reporter-junit "$RUNNER_TEMP/bruno-junit.xml"` before invoking `bru`. JUnit is required for output extraction; auto-injection means a minimal `command: 'run'` produces count outputs without the user having to remember reporter flags. The file lives in the runner's temp dir and is auto-cleaned post-job.
 
 If the user explicitly passes `--reporter-junit some/path.xml`, the action honors that path and parses from there.
 
-### Exit code propagation
+**Exit code propagation.** The action propagates `bru`'s exit code naturally. The workflow step succeeds on exit 0 and fails on non-zero. Users who want the workflow to continue past failures use GitHub Actions' built-in `continue-on-error: true` (see [Soft-fail recipe](#soft-fail-recipe)).
 
-The action propagates `bru`'s exit code naturally. The workflow step succeeds on exit 0 and fails on non-zero. Users who want the workflow to continue past failures use GitHub Actions' built-in `continue-on-error: true` (see recipe #12).
+## Versioning
 
-## Pairing with downstream actions
+| Tag | Behaviour |
+|---|---|
+| `@v0` | Floating major. Receives every backwards-compatible release. |
+| `@v0.0.0` | Immutable. Pinned to a specific release. |
 
-This section covers every reporting and artifact use case. The action emits clean JUnit XML; downstream actions render it for the user-visible surface needed or upload it as a workflow artifact.
+The `v<major>` tag is retagged automatically on every published release.
 
-### 1. PR comment on every run (sticky, updated in place)
+## Examples
+
+The following examples cover every reporting and artifact use case. The action emits clean JUnit XML; downstream actions render it for the user-visible surface needed or upload it as a workflow artifact.
+
+- [PR comment on every run (sticky)](#pr-comment-on-every-run-sticky)
+- [PR comment only on failures](#pr-comment-only-on-failures)
+- [Step Summary without PR comment](#step-summary-without-pr-comment)
+- [Workflow-level annotations on PR Checks](#workflow-level-annotations-on-pr-checks)
+- [Checks tab UI via dorny/test-reporter](#checks-tab-ui-via-dornytest-reporter)
+- [EnricoMi + dorny together](#enricomi--dorny-together)
+- [Artifact upload with header sanitization](#artifact-upload-with-header-sanitization)
+- [Multiple report formats (JUnit + HTML + JSON)](#multiple-report-formats-junit--html--json)
+- [Slack notification on failure](#slack-notification-on-failure)
+- [Simple non-sticky PR comment via gh CLI](#simple-non-sticky-pr-comment-via-gh-cli)
+- [Matrix across environments](#matrix-across-environments)
+- [Soft-fail recipe](#soft-fail-recipe)
+- [Forked-PR caveat](#forked-pr-caveat)
+- [Enterprise patterns (mTLS, custom CA)](#enterprise-patterns-mtls-custom-ca)
+- [Other CI platforms](#other-ci-platforms)
+
+### PR comment on every run (sticky)
 
 The most common ask. `EnricoMi/publish-unit-test-result-action` posts a single comment per PR with structured results, updated on re-runs. Adds a check run with rich annotations as a side benefit.
 
@@ -80,7 +130,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - uses: usebruno/bruno-cli-action@v1
+      - uses: usebruno/bruno-cli-action@v0
         with:
           working-directory: tests/payments
           command: 'run --env prod --reporter-junit results.xml'
@@ -95,7 +145,7 @@ jobs:
 **What you'll see:** a single Bruno-themed comment in the PR Conversation tab that updates in place on every re-run, plus a check run with structured per-test results in the PR Checks tab.
 **Why `if: always()`:** EnricoMi must run even when the Bruno step fails the build, otherwise users do not see the comment on failure.
 
-### 2. PR comment only when there are failures
+### PR comment only on failures
 
 For teams who do not want a green-passes-everywhere comment polluting the conversation:
 
@@ -110,7 +160,7 @@ For teams who do not want a green-passes-everywhere comment polluting the conver
 **What you'll see:** PR comment appears only when at least one assertion failed. Successful runs leave no comment behind.
 **Other `comment_mode` values:** `always` (default), `failures`, `errors`, `off`.
 
-### 3. Step Summary on the workflow run page (without PR comment)
+### Step Summary without PR comment
 
 EnricoMi writes a Step Summary by default. If you want the workflow-page digest but no PR comment noise:
 
@@ -125,7 +175,7 @@ EnricoMi writes a Step Summary by default. If you want the workflow-page digest 
 
 **What you'll see:** a markdown summary on the workflow run page (visible by clicking into the run from the Actions tab). No PR Conversation comment, no Checks-tab check run annotations.
 
-### 4. Workflow-level annotations (errors visible on the PR Checks card)
+### Workflow-level annotations on PR Checks
 
 EnricoMi posts annotations via the Check Runs API. These appear in the PR Checks tab attached to EnricoMi's check run:
 
@@ -140,12 +190,12 @@ EnricoMi posts annotations via the Check Runs API. These appear in the PR Checks
 **What you'll see:** the PR Checks tab shows the EnricoMi check run with one annotation per failed assertion, expandable for failure details.
 **Note:** line-anchored annotations on `.bru` source lines would require the CLI to emit `file=` and `line=` in JUnit. Not currently planned.
 
-### 5. Checks tab UI via dorny/test-reporter
+### Checks tab UI via dorny/test-reporter
 
 If you have a polyglot test stack (Jest, Pytest, Bruno) and want all results in the same Checks tab UI, dorny is the better tool than EnricoMi:
 
 ```yaml
-- uses: usebruno/bruno-cli-action@v1
+- uses: usebruno/bruno-cli-action@v0
   with:
     working-directory: tests/payments
     command: 'run --env prod --reporter-junit results.xml'
@@ -160,12 +210,12 @@ If you have a polyglot test stack (Jest, Pytest, Bruno) and want all results in 
 
 **What you'll see:** a separate check run in the PR Checks tab labeled "Bruno API tests" with structured per-test results and expandable failure details. Visually consistent with check runs from your other JUnit-emitting test suites.
 
-### 6. EnricoMi + dorny together (PR comment + rich Checks tab)
+### EnricoMi + dorny together
 
 When you want both: a PR Conversation comment from EnricoMi and a polished Checks tab UI from dorny:
 
 ```yaml
-- uses: usebruno/bruno-cli-action@v1
+- uses: usebruno/bruno-cli-action@v0
   with:
     working-directory: tests/payments
     command: 'run --env prod --reporter-junit results.xml'
@@ -186,12 +236,12 @@ When you want both: a PR Conversation comment from EnricoMi and a polished Check
 
 **What you'll see:** PR Conversation gets the EnricoMi sticky comment; PR Checks tab shows two check runs (one from each downstream action) plus the EnricoMi annotations.
 
-### 7. Artifact upload with header sanitization
+### Artifact upload with header sanitization
 
 Bruno's CLI handles sensitive-header redaction; pass the flag in `command`. Chain `actions/upload-artifact@v7` to persist the report:
 
 ```yaml
-- uses: usebruno/bruno-cli-action@v1
+- uses: usebruno/bruno-cli-action@v0
   with:
     working-directory: tests/payments
     command: 'run --env prod --reporter-junit results.xml --reporter-skip-headers "Authorization Cookie X-Tenant-Token"'
@@ -207,12 +257,12 @@ Bruno's CLI handles sensitive-header redaction; pass the flag in `command`. Chai
 
 To customize retention or use compression options, see `actions/upload-artifact@v7`'s own inputs (`retention-days`, `compression-level`, `if-no-files-found`).
 
-### 8. Multiple report formats (JUnit + HTML + JSON)
+### Multiple report formats (JUnit + HTML + JSON)
 
 Pass multiple reporter flags in `command`. Chain `actions/upload-artifact@v7` with a path list:
 
 ```yaml
-- uses: usebruno/bruno-cli-action@v1
+- uses: usebruno/bruno-cli-action@v0
   with:
     working-directory: tests/payments
     command: 'run --env prod --reporter-junit results.xml --reporter-html report.html --reporter-json report.json'
@@ -229,13 +279,13 @@ Pass multiple reporter flags in `command`. Chain `actions/upload-artifact@v7` wi
 
 **What you'll see:** an artifact containing all three report files. Download to a browser to view the rich HTML report; JSON is consumable by custom dashboards or aggregators.
 
-### 9. Slack notification on failure
+### Slack notification on failure
 
 Use the JUnit-derived `failed` output as a conditional. Use `continue-on-error: true` so the notification step still runs:
 
 ```yaml
 - id: bruno
-  uses: usebruno/bruno-cli-action@v1
+  uses: usebruno/bruno-cli-action@v0
   continue-on-error: true
   with:
     working-directory: tests/payments
@@ -262,13 +312,13 @@ Use the JUnit-derived `failed` output as a conditional. Use `continue-on-error: 
 **Prerequisites:** `SLACK_WEBHOOK_URL` secret configured in the repository.
 **What you'll see:** the Bruno step shows red on failure (honest signal) but the workflow continues; a Slack message lands in the channel mapped to the webhook with counts, branch, duration, and a link to the workflow run.
 
-### 10. Simple non-sticky PR comment via gh CLI (lightweight alternative to EnricoMi)
+### Simple non-sticky PR comment via gh CLI
 
 For users who do not want EnricoMi's full setup and only need a quick "post a comment with the counts" pattern (no stickiness, each run adds a new comment):
 
 ```yaml
 - id: bruno
-  uses: usebruno/bruno-cli-action@v1
+  uses: usebruno/bruno-cli-action@v0
   with:
     working-directory: tests/payments
     command: 'run --env prod'
@@ -289,9 +339,9 @@ For users who do not want EnricoMi's full setup and only need a quick "post a co
 ```
 
 **Prerequisites:** `pull-requests: write` permission and the workflow triggered on `pull_request`.
-**What you'll see:** a new comment posted to the PR on every workflow run. Each re-run adds another comment (no in-place update). Use EnricoMi (recipe #1) if you want stickiness.
+**What you'll see:** a new comment posted to the PR on every workflow run. Each re-run adds another comment (no in-place update). Use EnricoMi (above) if you want stickiness.
 
-### 11. Matrix across environments
+### Matrix across environments
 
 Use distinct JUnit paths and artifact names per matrix leg. Chain EnricoMi and `actions/upload-artifact@v7` per leg:
 
@@ -311,7 +361,7 @@ jobs:
         env: [staging, prod]
     steps:
       - uses: actions/checkout@v6
-      - uses: usebruno/bruno-cli-action@v1
+      - uses: usebruno/bruno-cli-action@v0
         with:
           working-directory: tests/payments
           command: 'run --env ${{ matrix.env }} --reporter-junit results-${{ matrix.env }}.xml'
@@ -333,13 +383,13 @@ jobs:
 **What you'll see:** two matrix legs running in parallel against staging and prod. Each leg produces its own artifact (`bruno-report-staging`, `bruno-report-prod`), its own check run (`Bruno (staging)` / `Bruno (prod)`) in the PR Checks tab, and a PR comment only when that leg fails.
 **Note:** include the matrix key in both `--reporter-junit` and the artifact `name` to avoid `actions/upload-artifact@v7`'s duplicate-name error across matrix legs.
 
-### 12. Soft-fail recipe
+### Soft-fail recipe
 
 Record results without failing the build, then notify selectively. Use GitHub Actions' built-in `continue-on-error: true`:
 
 ```yaml
 - id: bruno
-  uses: usebruno/bruno-cli-action@v1
+  uses: usebruno/bruno-cli-action@v0
   continue-on-error: true
   with:
     working-directory: tests/payments
@@ -351,11 +401,11 @@ Record results without failing the build, then notify selectively. Use GitHub Ac
 
 **What you'll see:** the Bruno step appears red in the workflow run UI when assertions fail (honest signal that something went wrong), but downstream steps still run because `continue-on-error` lets the workflow proceed. Outputs are populated for the conditional notification step.
 
-### 13. Forked-PR caveat
+### Forked-PR caveat
 
 GitHub restricts `GITHUB_TOKEN` to read-only for workflows triggered by `pull_request` events from forked repositories, regardless of the `permissions` block in the workflow file. EnricoMi and any PR comment poster need write permission, which means workflows running on community contributions must use `pull_request_target` (with care: it runs with the base branch's permissions and secrets). See the [GitHub docs](https://docs.github.com/en/actions/security-guides/automatic-token-authentication#permissions-for-the-github_token) and [EnricoMi's fork PR docs](https://github.com/EnricoMi/publish-unit-test-result-action#support-fork-repositories-and-dependabot-branches) for the trade-offs.
 
-## Enterprise patterns (mTLS, custom CA)
+### Enterprise patterns (mTLS, custom CA)
 
 Marshall secrets via shell, pass paths to bru:
 
@@ -368,7 +418,7 @@ Marshall secrets via shell, pass paths to bru:
     CA_CERT: ${{ secrets.API_CA_CERT }}
     CLIENT_CERT_CONFIG: ${{ secrets.API_CLIENT_CERT_CONFIG }}
 
-- uses: usebruno/bruno-cli-action@v1
+- uses: usebruno/bruno-cli-action@v0
   with:
     working-directory: tests/payments
     command: 'run --env prod --cacert /tmp/certs/ca.pem --client-cert-config /tmp/certs/client.json'
@@ -377,18 +427,9 @@ Marshall secrets via shell, pass paths to bru:
 **Prerequisites:** `API_CA_CERT` and `API_CLIENT_CERT_CONFIG` secrets configured.
 **What you'll see:** Bruno runs against an internal mTLS-protected API. Secrets never appear in logs (GitHub auto-masks); cert files are written to a temp dir and cleaned up when the runner is destroyed.
 
-## Other CI platforms
+### Other CI platforms
 
 Bruno's CLI works on Jenkins, Azure DevOps, GitLab CI, and Bitbucket Pipelines via direct CLI invocation. The [Bruno CLI Docker image](https://hub.docker.com/r/usebruno/cli) is the recommended primitive there. See the [Bruno CLI docs](https://docs.usebruno.com/bru-cli/overview) for platform-specific examples.
-
-## Versioning
-
-| Tag | Behaviour |
-|---|---|
-| `@v1` | Floating major. Receives every backwards-compatible release. |
-| `@v1.2.3` | Immutable. Pinned to a specific release. |
-
-The `v<major>` tag is retagged automatically on every published release.
 
 ## Troubleshooting
 
@@ -443,6 +484,15 @@ If the run log shows a red **Install Bruno CLI** step (not **Run bru**), the fai
 All of these surface npm exit `1`. The useful signal is the stderr text, not the exit number.
 
 **Network timeouts.** Bruno honours `HTTP_PROXY` / `HTTPS_PROXY` / `NO_PROXY`. Set them via `env:` on the step.
+
+## Resources
+
+- [Bruno CLI documentation](https://docs.usebruno.com/bru-cli/overview)
+- [Bruno CLI command options](https://docs.usebruno.com/bru-cli/commandOptions)
+- [`@usebruno/cli` on npm](https://www.npmjs.com/package/@usebruno/cli)
+- [`usebruno/bruno` (main Bruno repo)](https://github.com/usebruno/bruno)
+- [GitHub Actions documentation](https://docs.github.com/en/actions)
+- [Recommended downstream actions](#examples) for PR comments, Checks tab UI, and artifact upload
 
 ## License
 
