@@ -71,6 +71,10 @@ Available as `${{ steps.<id>.outputs.<name> }}` in subsequent steps:
 | `total` | Total number of requests run. |
 | `duration-ms` | Total run duration in milliseconds. |
 
+### Behavior
+
+For `run` commands, the action adds a temporary JUnit reporter when one is not provided and populates the request-count outputs. Other Bruno CLI commands run unchanged and return zero for the request-count outputs.
+
 ## Versioning
 
 | Tag | Behaviour |

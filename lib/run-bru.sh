@@ -21,36 +21,35 @@ SANITIZED_COMMAND="${USER_COMMAND#bru }"
 eval "set -- ${SANITIZED_COMMAND}"
 USER_ARGS=( "$@" )
 
-# Detect --reporter-junit <path> or --reporter-junit=<path>. We only care
-# about JUnit because that's what the parser reads to compute passed/failed/
-# total/duration-ms. JSON and HTML reporters are pure CLI pass-through —
-# users add those flags themselves if they want those files.
 JUNIT_PATH=""
-i=0
-while [ "${i}" -lt "${#USER_ARGS[@]}" ]; do
-  arg="${USER_ARGS[${i}]}"
-  next_i=$((i + 1))
-  case "${arg}" in
-    --reporter-junit)
-      [ "${next_i}" -lt "${#USER_ARGS[@]}" ] && JUNIT_PATH="${USER_ARGS[${next_i}]}"
-      ;;
-    --reporter-junit=*)
-      JUNIT_PATH="${arg#--reporter-junit=}"
-      ;;
-  esac
-  i=$((i + 1))
-done
+ABS_JUNIT_PATH=""
 
-if [ -z "${JUNIT_PATH}" ]; then
-  JUNIT_PATH="${DEFAULT_JUNIT}"
-  USER_ARGS+=( --reporter-junit "${JUNIT_PATH}" )
-  echo "No --reporter-junit in command; defaulted to ${JUNIT_PATH} for parsing."
+if [ "${USER_ARGS[0]:-}" = "run" ]; then
+  i=0
+  while [ "${i}" -lt "${#USER_ARGS[@]}" ]; do
+    arg="${USER_ARGS[${i}]}"
+    next_i=$((i + 1))
+    case "${arg}" in
+      --reporter-junit)
+        [ "${next_i}" -lt "${#USER_ARGS[@]}" ] && JUNIT_PATH="${USER_ARGS[${next_i}]}"
+        ;;
+      --reporter-junit=*)
+        JUNIT_PATH="${arg#--reporter-junit=}"
+        ;;
+    esac
+    i=$((i + 1))
+  done
+
+  if [ -z "${JUNIT_PATH}" ]; then
+    JUNIT_PATH="${DEFAULT_JUNIT}"
+    USER_ARGS+=( --reporter-junit "${JUNIT_PATH}" )
+    echo "No --reporter-junit in command; defaulted to ${JUNIT_PATH} for parsing."
+  fi
+
+  mkdir -p "$(dirname "${JUNIT_PATH}")"
+
+  ABS_JUNIT_PATH="$(cd "$(dirname "${JUNIT_PATH}")" && pwd)/$(basename "${JUNIT_PATH}")"
 fi
-
-mkdir -p "$(dirname "${JUNIT_PATH}")"
-
-# Absolute path so the next step (which may run in a different cwd) can find it.
-ABS_JUNIT_PATH="$(cd "$(dirname "${JUNIT_PATH}")" && pwd)/$(basename "${JUNIT_PATH}")"
 
 echo "::group::bru ${USER_ARGS[*]}"
 set +e

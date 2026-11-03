@@ -144,3 +144,97 @@ jobs:
           test "${{ steps.bru.outputs.exit-code }}" = "0"
           test -f tests/collection/results.xml
           test ! -e "${RUNNER_TEMP}/bruno-junit.xml"
+
+  docs-generate:
+    name: Docs generate without JUnit injection (bru ${{ matrix.bru-version }})
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        bru-version: ['4.3.0', 'latest']
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Generate API documentation
+        id: bru
+        uses: ./
+        with:
+          bru-version: ${{ matrix.bru-version }}
+          working-directory: tests/collection
+          command: 'docs generate --output generated/api.html --no-git-link'
+
+      - name: Assert HTML output without JUnit reporting
+        run: |
+          set -euo pipefail
+          test "${{ steps.bru.outputs.exit-code }}" = "0"
+          test "${{ steps.bru.outputs.passed }}" = "0"
+          test "${{ steps.bru.outputs.failed }}" = "0"
+          test "${{ steps.bru.outputs.total }}" = "0"
+          test "${{ steps.bru.outputs.duration-ms }}" = "0"
+          test -s tests/collection/generated/api.html
+          test ! -e "${RUNNER_TEMP}/bruno-junit.xml"
+
+  import-openapi:
+    name: OpenAPI import without JUnit injection (bru ${{ matrix.bru-version }})
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        bru-version: ['4.3.0', 'latest']
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Prepare import output directory
+        run: mkdir -p tests/generated
+
+      - name: Import OpenAPI collection
+        id: bru
+        uses: ./
+        with:
+          bru-version: ${{ matrix.bru-version }}
+          working-directory: tests
+          command: 'import openapi --source import/openapi.yaml --output generated/imported --collection-name "Import action check"'
+
+      - name: Assert OpenCollection output without JUnit reporting
+        run: |
+          set -euo pipefail
+          test "${{ steps.bru.outputs.exit-code }}" = "0"
+          test "${{ steps.bru.outputs.passed }}" = "0"
+          test "${{ steps.bru.outputs.failed }}" = "0"
+          test "${{ steps.bru.outputs.total }}" = "0"
+          test "${{ steps.bru.outputs.duration-ms }}" = "0"
+          test -s tests/generated/imported/opencollection.yml
+          test "$(find tests/generated/imported -name '*.yml' -type f | wc -l)" -ge 2
+          test ! -e "${RUNNER_TEMP}/bruno-junit.xml"
+
+  import-failure:
+    name: Failed import propagates exit code
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Run import with a missing source
+        id: bru
+        continue-on-error: true
+        uses: ./
+        with:
+          bru-version: latest
+          working-directory: tests
+          command: 'import openapi --source import/missing.yaml --output generated/imported --collection-name "Missing source"'
+
+      - name: Assert import failure without JUnit reporting
+        run: |
+          set -euo pipefail
+          test "${{ steps.bru.outputs.exit-code }}" != "0"
+          test "${{ steps.bru.outputs.passed }}" = "0"
+          test "${{ steps.bru.outputs.failed }}" = "0"
+          test "${{ steps.bru.outputs.total }}" = "0"
+          test "${{ steps.bru.outputs.duration-ms }}" = "0"
+          test "${{ steps.bru.outcome }}" = "failure"
+          test ! -e "${RUNNER_TEMP}/bruno-junit.xml"

@@ -23,16 +23,16 @@ outputs:
     description: 'Exit code from the bru process.'
     value: ${{ steps.run.outputs.exit-code }}
   passed:
-    description: 'Number of passed requests.'
+    description: 'Number of passed requests. Zero for commands other than run.'
     value: ${{ steps.report.outputs.passed }}
   failed:
-    description: 'Number of failed requests.'
+    description: 'Number of failed requests. Zero for commands other than run.'
     value: ${{ steps.report.outputs.failed }}
   total:
-    description: 'Total requests run.'
+    description: 'Total requests run. Zero for commands other than run.'
     value: ${{ steps.report.outputs.total }}
   duration-ms:
-    description: 'Sum of testsuite durations in milliseconds.'
+    description: 'Sum of testsuite durations in milliseconds. Zero for commands other than run.'
     value: ${{ steps.report.outputs.duration-ms }}
 
 runs:
