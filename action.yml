@@ -13,6 +13,10 @@ inputs:
     description: 'Version of @usebruno/cli to install.'
     required: false
     default: 'latest'
+  cooldown-days:
+    description: 'Only install @usebruno/cli and dependency versions published at least this many days ago. Set to 0 to disable.'
+    required: false
+    default: '2'
   working-directory:
     description: 'Shell working directory. Typically the Bruno collection root.'
     required: false
@@ -41,7 +45,7 @@ runs:
     - name: Set up Node.js
       uses: actions/setup-node@v6
       with:
-        node-version: '22'
+        node-version: '24'
 
     - name: Install action dependencies (fast-xml-parser)
       shell: bash
@@ -53,6 +57,7 @@ runs:
       shell: bash
       env:
         BRU_VERSION: ${{ inputs.bru-version }}
+        COOLDOWN_DAYS: ${{ inputs.cooldown-days }}
       run: ${{ github.action_path }}/lib/install-cli.sh
 
     - name: Run bru

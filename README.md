@@ -46,6 +46,7 @@ Customize the Bruno CLI GitHub Action to suit your API project's CI/CD workflow.
 |---|---|---|
 | `command` | String | **Required.** The Bruno CLI command to run and its options (e.g. `run --env prod`). The action prepends `bru`. |
 | `bru-version` | String | Version of `@usebruno/cli` to install. (Default: `latest`) |
+| `cooldown-days` | Number | Only install `@usebruno/cli` and dependency versions published at least this many days ago, to limit exposure to newly compromised releases. A pinned `bru-version` newer than this fails to install. Set to `0` to disable. (Default: `2`) |
 | `working-directory` | String | Path of the Bruno collection directory. (Default: `.`) |
 
 **Example using all inputs:**
@@ -56,6 +57,7 @@ Customize the Bruno CLI GitHub Action to suit your API project's CI/CD workflow.
   with:
     command: 'run --env prod --reporter-junit results.xml'
     bru-version: '3.5.0'
+    cooldown-days: 14
     working-directory: tests/payments
 ```
 
