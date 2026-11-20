@@ -45,7 +45,8 @@ Customize the Bruno CLI GitHub Action to suit your API project's CI/CD workflow.
 | Name | Type | Description |
 |---|---|---|
 | `command` | String | **Required.** The Bruno CLI command to run and its options (e.g. `run --env prod`). The action prepends `bru`. |
-| `bru-version` | String | Version of `@usebruno/cli` to install. (Default: `latest`) |
+| `bru-version` | String | Version of `@usebruno/cli` to install: an exact version, a range (e.g. `^3`, `4.2.x`) or a dist-tag (e.g. `latest`), resolved like npm does. Versions with a lockfile in [`lockfiles/`](lockfiles) install from it; others fall back to a normal `npm install` with a warning. (Default: `latest`) |
+| `cooldown-days` | Number | Only install `@usebruno/cli` and dependency versions published at least this many days ago, to limit exposure to newly compromised releases. Ranges and tags pick the newest version past the cooldown; a pinned version newer than this fails. Set to `0` to disable. (Default: `2`) |
 | `working-directory` | String | Path of the Bruno collection directory. (Default: `.`) |
 
 **Example using all inputs:**
@@ -56,6 +57,7 @@ Customize the Bruno CLI GitHub Action to suit your API project's CI/CD workflow.
   with:
     command: 'run --env prod --reporter-junit results.xml'
     bru-version: '3.5.0'
+    cooldown-days: 14
     working-directory: tests/payments
 ```
 
@@ -75,14 +77,24 @@ Available as `${{ steps.<id>.outputs.<name> }}` in subsequent steps:
 
 For `run` commands, the action adds a temporary JUnit reporter when one is not provided and populates the request-count outputs. Other Bruno CLI commands run unchanged and return zero for the request-count outputs.
 
+### Locked installs
+
+Most Bruno versions install from a lockfile shipped with the action (see [`lockfiles/`](lockfiles)), so every run gets the same fixed dependency tree and no dependency install scripts run. Other versions still work, but they fall back to a normal `npm install` and print a warning. Pin a locked version to avoid the fallback. Maintainers: see [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## Versioning
 
-| Tag | Behaviour |
+| Reference | Behaviour |
 |---|---|
 | `@v1` | Floating major. Receives every backwards-compatible release. |
-| `@v1.0.0` | Immutable. Pinned to a specific release. |
+| `@104e180c2e7219a915dc48b6979ddbafe0940fcd # v1.0.0` | Immutable. Pinned to the exact commit of the `v1.0.0` release. |
 
 The `v<major>` tag is retagged automatically on every published release.
+
+Git tags can be moved, so a release tag such as `@v1.0.0` can point at different code later. Only a full commit SHA is immutable. Keep the version in a trailing comment so it stays readable; Dependabot and Renovate update both the SHA and the comment when a new release comes out:
+
+```yaml
+- uses: usebruno/bruno-cli-action@104e180c2e7219a915dc48b6979ddbafe0940fcd # v1.0.0
+```
 
 ## Examples
 

@@ -1,0 +1,4 @@
+tests/ export-ignore
+.github/ export-ignore
+scripts/ export-ignore
+CONTRIBUTING.md export-ignore
