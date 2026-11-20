@@ -1,0 +1,7 @@
+{
+  "name": "bruno-cli-3.1.3",
+  "private": true,
+  "dependencies": {
+    "@usebruno/cli": "3.1.3"
+  }
+}

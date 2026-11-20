@@ -45,8 +45,8 @@ Customize the Bruno CLI GitHub Action to suit your API project's CI/CD workflow.
 | Name | Type | Description |
 |---|---|---|
 | `command` | String | **Required.** The Bruno CLI command to run and its options (e.g. `run --env prod`). The action prepends `bru`. |
-| `bru-version` | String | Version of `@usebruno/cli` to install. (Default: `latest`) |
-| `cooldown-days` | Number | Only install `@usebruno/cli` and dependency versions published at least this many days ago, to limit exposure to newly compromised releases. A pinned `bru-version` newer than this fails to install. Set to `0` to disable. (Default: `2`) |
+| `bru-version` | String | Version of `@usebruno/cli` to install: an exact version, a range (e.g. `^3`, `4.2.x`) or a dist-tag (e.g. `latest`), resolved like npm does. Versions with a lockfile in [`lockfiles/`](lockfiles) install from it; others fall back to a normal `npm install` with a warning. (Default: `latest`) |
+| `cooldown-days` | Number | Only install `@usebruno/cli` and dependency versions published at least this many days ago, to limit exposure to newly compromised releases. Ranges and tags pick the newest version past the cooldown; a pinned version newer than this fails. Set to `0` to disable. (Default: `2`) |
 | `working-directory` | String | Path of the Bruno collection directory. (Default: `.`) |
 
 **Example using all inputs:**
@@ -76,6 +76,10 @@ Available as `${{ steps.<id>.outputs.<name> }}` in subsequent steps:
 ### Behavior
 
 For `run` commands, the action adds a temporary JUnit reporter when one is not provided and populates the request-count outputs. Other Bruno CLI commands run unchanged and return zero for the request-count outputs.
+
+### Locked installs
+
+Most Bruno versions install from a lockfile shipped with the action (see [`lockfiles/`](lockfiles)), so every run gets the same fixed dependency tree and no dependency install scripts run. Other versions still work, but they fall back to a normal `npm install` and print a warning. Pin a locked version to avoid the fallback. Maintainers: see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Versioning
 

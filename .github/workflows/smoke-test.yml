@@ -238,3 +238,67 @@ jobs:
           test "${{ steps.bru.outputs.duration-ms }}" = "0"
           test "${{ steps.bru.outcome }}" = "failure"
           test ! -e "${RUNNER_TEMP}/bruno-junit.xml"
+
+  version-resolution:
+    name: bru-version ${{ matrix.spec }} installs ${{ matrix.expect }} (${{ matrix.source }})
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { spec: '^3', expect: '3.5.3', source: 'locked' }
+          - { spec: 'v4.2.1', expect: '4.2.1', source: 'locked' }
+          - { spec: '^1', expect: '1.40.0', source: 'locked' }
+          - { spec: '2.1.0', expect: '2.1.0', source: 'unlocked' }
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Run bru --version
+        id: bru
+        uses: ./
+        with:
+          bru-version: ${{ matrix.spec }}
+          working-directory: tests/collection
+          command: '--version'
+
+      - name: Assert resolved version and install source
+        env:
+          EXPECT: ${{ matrix.expect }}
+          SOURCE: ${{ matrix.source }}
+        run: |
+          set -euo pipefail
+          test "$(bru --version)" = "${EXPECT}"
+          if [ "${SOURCE}" = "locked" ]; then
+            test "$(command -v bru)" = "${RUNNER_TEMP}/bruno-cli-${EXPECT}/node_modules/.bin/bru"
+          else
+            test "$(command -v bru)" != "${RUNNER_TEMP}/bruno-cli-${EXPECT}/node_modules/.bin/bru"
+          fi
+
+  unknown-version:
+    name: Nonexistent bru-version fails before running bru
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Request a version that does not exist
+        id: bru
+        continue-on-error: true
+        uses: ./
+        with:
+          bru-version: '99.0.0'
+          working-directory: tests/collection
+          command: 'run health.bru --env ci'
+
+      - name: Assert the install step failed and bru never ran
+        run: |
+          set -euo pipefail
+          test "${{ steps.bru.outcome }}" = "failure"
+          test -z "${{ steps.bru.outputs.exit-code }}"
+          if command -v bru; then
+            echo "bru unexpectedly on PATH"
+            exit 1
+          fi
