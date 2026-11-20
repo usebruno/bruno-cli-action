@@ -16,3 +16,37 @@ Locking a version doesn't make it safe. Many lockfiles contain vulnerable depend
 ```sh
 npm audit --package-lock-only
 ```
+
+## Adding or regenerating a lockfile
+
+`scripts/add-version.sh` needs npm 11.10 or newer for `--min-release-age`:
+
+```sh
+scripts/add-version.sh 4.3.0           # add
+FORCE=1 scripts/add-version.sh 4.3.0   # regenerate, picking up in-range dependency fixes
+```
+
+It runs `npm install --package-lock-only --ignore-scripts` in a temp folder with a 2-day release-age cooldown (`COOLDOWN_DAYS`), so neither Bruno nor any of its dependencies can be locked until it has been published for 2 days. It then checks that the locked CLI version is the one requested and that every package comes from registry.npmjs.org.
+
+Lockfiles don't pick up dependency fixes on their own. Regenerate a version with `FORCE=1` to pick up fixes that fall within Bruno's semver ranges.
+
+## Automated lockfile PRs
+
+`.github/workflows/add-bruno-version.yml` runs daily and on manual dispatch. `scripts/missing-versions.sh` lists every stable release from `MIN_VERSION` (default 3.0.0) onwards that is past the cooldown and has no lockfile, including backports to older lines. The workflow opens one PR per version on a `bruno-lockfile/<version>` branch.
+
+- If one version can't be locked, the others still get PRs, and the run fails listing the version that failed.
+- If an earlier run pushed a branch but never opened its PR, the next run opens it.
+- To decline a version, close its PR without deleting the branch, and it won't be proposed again.
+- Older majors are locked selectively by hand.
+- PRs opened with `GITHUB_TOKEN` don't trigger other workflows, so run the smoke tests manually on the PR branch.
+- After merging, cut a release so `@v1` consumers get the new lockfile.
+
+### Human review
+
+These PRs always need a human to review them. The workflow opens them as drafts, never enables auto-merge, and requests review from the comma-separated GitHub usernames in the `LOCKFILE_REVIEWERS` repository variable. Teams can't be requested with the workflow's `GITHUB_TOKEN`, so use `CODEOWNERS` for team review.
+
+To make a human approval mandatory, set up the repository:
+
+- Protect `main` with a branch protection rule or ruleset that requires at least one approving review and blocks direct pushes.
+- Add a `CODEOWNERS` entry for `/lockfiles/` and turn on "Require review from Code Owners", so an approval from the `github-actions` bot never counts.
+- Turn on "Allow GitHub Actions to create and approve pull requests" so the workflow can open PRs. The same setting lets the bot approve PRs, which is why the Code Owners requirement matters.
