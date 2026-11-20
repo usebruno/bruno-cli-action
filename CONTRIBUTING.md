@@ -50,3 +50,11 @@ To make a human approval mandatory, set up the repository:
 - Protect `main` with a branch protection rule or ruleset that requires at least one approving review and blocks direct pushes.
 - Add a `CODEOWNERS` entry for `/lockfiles/` and turn on "Require review from Code Owners", so an approval from the `github-actions` bot never counts.
 - Turn on "Allow GitHub Actions to create and approve pull requests" so the workflow can open PRs. The same setting lets the bot approve PRs, which is why the Code Owners requirement matters.
+
+## What consumers download
+
+The Actions runner downloads the archive GitHub generates for a ref, not a clone. Anything consumers don't need at runtime (`tests/`, `.github/`, `scripts/` and this file) is marked `export-ignore` in `.gitattributes` to keep that archive small. `lib/` and `lockfiles/` are needed at runtime and must never be excluded. Check what consumers receive with:
+
+```sh
+git archive HEAD | tar -t
+```
