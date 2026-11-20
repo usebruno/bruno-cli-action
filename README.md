@@ -83,12 +83,18 @@ Most Bruno versions install from a lockfile shipped with the action (see [`lockf
 
 ## Versioning
 
-| Tag | Behaviour |
+| Reference | Behaviour |
 |---|---|
 | `@v1` | Floating major. Receives every backwards-compatible release. |
-| `@v1.0.0` | Immutable. Pinned to a specific release. |
+| `@104e180c2e7219a915dc48b6979ddbafe0940fcd # v1.0.0` | Immutable. Pinned to the exact commit of the `v1.0.0` release. |
 
 The `v<major>` tag is retagged automatically on every published release.
+
+Git tags can be moved, so a release tag such as `@v1.0.0` can point at different code later. Only a full commit SHA is immutable. Keep the version in a trailing comment so it stays readable; Dependabot and Renovate update both the SHA and the comment when a new release comes out:
+
+```yaml
+- uses: usebruno/bruno-cli-action@104e180c2e7219a915dc48b6979ddbafe0940fcd # v1.0.0
+```
 
 ## Examples
 
